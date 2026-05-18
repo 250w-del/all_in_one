@@ -22,9 +22,9 @@ app.use(cors({
     const allowed = [
       'http://localhost:5173',
       'http://localhost:3000',
-      process.env.FRONTEND_URL, // set this on Render to your Vercel URL
+      'https://all-in-one-pi-flax.vercel.app',
+      process.env.FRONTEND_URL,
     ].filter(Boolean)
-    // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin || allowed.includes(origin) || origin.endsWith('.vercel.app')) {
       callback(null, true)
     } else {

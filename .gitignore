@@ -8,8 +8,9 @@ dist/
 # Environment files (NEVER commit these)
 .env
 .env.local
-.env.production
 server/.env
+
+# .env.production is safe to commit (only contains public API URL)
 
 # Logs
 *.log
