@@ -4,7 +4,8 @@ services:
     runtime: node
     rootDir: server
     buildCommand: npm install
-    startCommand: node index.js
+    startCommand: npm start
+    plan: free
     envVars:
       - key: NODE_ENV
         value: production
