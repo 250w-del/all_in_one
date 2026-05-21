@@ -2,6 +2,13 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import rateLimit from 'express-rate-limit'
+import { fileURLToPath } from 'url'
+import path from 'path'
+
+// Load .env from server/ directory regardless of where node is run from
+const __filename = fileURLToPath(import.meta.url)
+const __dirname  = path.dirname(__filename)
+dotenv.config({ path: path.join(__dirname, '.env') })
 
 import authRoutes      from './routes/auth.js'
 import bookingRoutes   from './routes/bookings.js'
