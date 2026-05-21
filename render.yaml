@@ -3,7 +3,7 @@ services:
     name: all-in-one-tour-api
     runtime: node
     rootDir: server
-    buildCommand: npm install && node db/migrate.js
+    buildCommand: npm install
     startCommand: npm start
     plan: free
     envVars:

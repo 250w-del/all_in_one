@@ -5,7 +5,6 @@ import rateLimit from 'express-rate-limit'
 import { fileURLToPath } from 'url'
 import path from 'path'
 
-// Load .env from server/ directory regardless of where node is run from
 const __filename = fileURLToPath(import.meta.url)
 const __dirname  = path.dirname(__filename)
 dotenv.config({ path: path.join(__dirname, '.env') })
@@ -17,6 +16,9 @@ import dashboardRoutes from './routes/dashboard.js'
 import messageRoutes   from './routes/messages.js'
 import reviewRoutes    from './routes/reviews.js'
 import activityRoutes  from './routes/activity.js'
+import pool            from './db/connection.js'
+
+dotenv.config({ path: path.join(__dirname, '.env') })
 
 dotenv.config()
 
@@ -84,8 +86,70 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Internal server error.' })
 })
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`\n🚀 All In One Tour API`)
   console.log(`   Running on: http://localhost:${PORT}`)
   console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`)
+
+  // Auto-migrate database tables on startup
+  try {
+    const TABLES = `
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY, full_name VARCHAR(100) NOT NULL,
+        email VARCHAR(150) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL,
+        phone VARCHAR(20), country VARCHAR(80),
+        role ENUM('user','admin') NOT NULL DEFAULT 'user',
+        is_active TINYINT(1) NOT NULL DEFAULT 1, avatar VARCHAR(255),
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        last_login DATETIME
+      ) ENGINE=InnoDB;
+
+      CREATE TABLE IF NOT EXISTS bookings (
+        id INT AUTO_INCREMENT PRIMARY KEY, user_id INT,
+        full_name VARCHAR(100) NOT NULL, email VARCHAR(150) NOT NULL,
+        phone VARCHAR(30), tour_type VARCHAR(120) NOT NULL,
+        tour_date DATE NOT NULL, guests VARCHAR(10) NOT NULL DEFAULT '1',
+        message TEXT, status ENUM('pending','confirmed','cancelled','completed') NOT NULL DEFAULT 'pending',
+        admin_notes TEXT,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB;
+
+      CREATE TABLE IF NOT EXISTS contact_messages (
+        id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100) NOT NULL,
+        email VARCHAR(150) NOT NULL, subject VARCHAR(200), message TEXT NOT NULL,
+        is_read TINYINT(1) NOT NULL DEFAULT 0, replied_at DATETIME,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB;
+
+      CREATE TABLE IF NOT EXISTS testimonials (
+        id INT AUTO_INCREMENT PRIMARY KEY, user_id INT,
+        name VARCHAR(100) NOT NULL, country VARCHAR(80), tour_type VARCHAR(120),
+        rating TINYINT NOT NULL DEFAULT 5, review TEXT NOT NULL,
+        is_approved TINYINT(1) NOT NULL DEFAULT 0,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB;
+
+      CREATE TABLE IF NOT EXISTS activity_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY, user_id INT,
+        action VARCHAR(100) NOT NULL, description TEXT, ip_address VARCHAR(45),
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB;
+
+      INSERT IGNORE INTO users (full_name, email, password, role, is_active) VALUES
+      ('Hyacinth HABINEZA','admin@allinonetour.rw',
+      '$2a$12$.RDWBx3llgNe6BukRz3wP.YM/TsO/jnPi1Y3emm8Q.oAsIukfeKDa','admin',1);
+    `
+    const stmts = TABLES.split(';').map(s => s.trim()).filter(s => s.length > 10)
+    for (const stmt of stmts) {
+      await pool.query(stmt)
+    }
+    console.log('✅ Database tables ready')
+  } catch (err) {
+    console.error('⚠️  Auto-migrate warning:', err.message)
+  }
 })
