@@ -4,30 +4,33 @@ import { authenticate, requireAdmin } from '../middleware/auth.js'
 
 const router = express.Router()
 
-// ─── ADMIN: Dashboard stats ───────────────────────────────────
 router.get('/stats', authenticate, requireAdmin, async (req, res) => {
   try {
-    const [[{ totalUsers }]]     = await pool.query("SELECT COUNT(*) as totalUsers FROM users WHERE role='user'")
-    const [[{ totalBookings }]]  = await pool.query('SELECT COUNT(*) as totalBookings FROM bookings')
-    const [[{ pendingBookings }]]= await pool.query("SELECT COUNT(*) as pendingBookings FROM bookings WHERE status='pending'")
-    const [[{ confirmedBookings }]] = await pool.query("SELECT COUNT(*) as confirmedBookings FROM bookings WHERE status='confirmed'")
-    const [[{ completedBookings }]] = await pool.query("SELECT COUNT(*) as completedBookings FROM bookings WHERE status='completed'")
-    const [[{ cancelledBookings }]] = await pool.query("SELECT COUNT(*) as cancelledBookings FROM bookings WHERE status='cancelled'")
-    const [[{ unreadMessages }]] = await pool.query("SELECT COUNT(*) as unreadMessages FROM contact_messages WHERE is_read=0")
-    const [[{ totalMessages }]]  = await pool.query('SELECT COUNT(*) as totalMessages FROM contact_messages')
-    const [[{ pendingReviews }]] = await pool.query("SELECT COUNT(*) as pendingReviews FROM testimonials WHERE is_approved=0")
+    const q = async (sql, params) => {
+      const [rows] = await pool.query(sql, params)
+      return parseInt(rows[0].total || rows[0].count || 0)
+    }
 
-    // Bookings per month (last 6 months)
+    const totalUsers        = await q("SELECT COUNT(*) as total FROM users WHERE role='user'")
+    const totalBookings     = await q('SELECT COUNT(*) as total FROM bookings')
+    const pendingBookings   = await q("SELECT COUNT(*) as total FROM bookings WHERE status='pending'")
+    const confirmedBookings = await q("SELECT COUNT(*) as total FROM bookings WHERE status='confirmed'")
+    const completedBookings = await q("SELECT COUNT(*) as total FROM bookings WHERE status='completed'")
+    const cancelledBookings = await q("SELECT COUNT(*) as total FROM bookings WHERE status='cancelled'")
+    const unreadMessages    = await q('SELECT COUNT(*) as total FROM contact_messages WHERE is_read=FALSE')
+    const totalMessages     = await q('SELECT COUNT(*) as total FROM contact_messages')
+    const pendingReviews    = await q('SELECT COUNT(*) as total FROM testimonials WHERE is_approved=FALSE')
+
+    // Bookings per month (last 6 months) — PostgreSQL syntax
     const [monthlyBookings] = await pool.query(`
-      SELECT DATE_FORMAT(created_at, '%b %Y') as month,
+      SELECT TO_CHAR(created_at, 'Mon YYYY') as month,
              COUNT(*) as count
       FROM bookings
-      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-      GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+      WHERE created_at >= NOW() - INTERVAL '6 months'
+      GROUP BY TO_CHAR(created_at, 'YYYY-MM'), TO_CHAR(created_at, 'Mon YYYY')
       ORDER BY MIN(created_at)
     `)
 
-    // Top tour types
     const [topTours] = await pool.query(`
       SELECT tour_type, COUNT(*) as count
       FROM bookings
@@ -36,7 +39,6 @@ router.get('/stats', authenticate, requireAdmin, async (req, res) => {
       LIMIT 5
     `)
 
-    // Recent bookings
     const [recentBookings] = await pool.query(`
       SELECT id, full_name, email, tour_type, tour_date, status, created_at
       FROM bookings
@@ -44,7 +46,6 @@ router.get('/stats', authenticate, requireAdmin, async (req, res) => {
       LIMIT 5
     `)
 
-    // Recent users
     const [recentUsers] = await pool.query(`
       SELECT id, full_name, email, country, created_at
       FROM users
@@ -53,7 +54,6 @@ router.get('/stats', authenticate, requireAdmin, async (req, res) => {
       LIMIT 5
     `)
 
-    // Recent activity logs
     const [recentActivity] = await pool.query(`
       SELECT al.*, u.full_name, u.email
       FROM activity_logs al
@@ -65,15 +65,8 @@ router.get('/stats', authenticate, requireAdmin, async (req, res) => {
     return res.json({
       success: true,
       stats: {
-        totalUsers,
-        totalBookings,
-        pendingBookings,
-        confirmedBookings,
-        completedBookings,
-        cancelledBookings,
-        unreadMessages,
-        totalMessages,
-        pendingReviews,
+        totalUsers, totalBookings, pendingBookings, confirmedBookings,
+        completedBookings, cancelledBookings, unreadMessages, totalMessages, pendingReviews,
       },
       monthlyBookings,
       topTours,

@@ -16,16 +16,16 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
     const [rows] = await pool.query(
       `SELECT id, full_name, email, phone, country, role, is_active, created_at, last_login
        FROM users
-       WHERE full_name LIKE ? OR email LIKE ?
+       WHERE full_name ILIKE $1 OR email ILIKE $2
        ORDER BY created_at DESC
-       LIMIT ? OFFSET ?`,
+       LIMIT $3 OFFSET $4`,
       [like, like, parseInt(limit), offset]
     )
-    const [[{ total }]] = await pool.query(
-      'SELECT COUNT(*) as total FROM users WHERE full_name LIKE ? OR email LIKE ?',
+    const [countRows] = await pool.query(
+      'SELECT COUNT(*) as total FROM users WHERE full_name ILIKE $1 OR email ILIKE $2',
       [like, like]
     )
-    return res.json({ success: true, users: rows, total, page: parseInt(page) })
+    return res.json({ success: true, users: rows, total: parseInt(countRows[0].total), page: parseInt(page) })
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Server error.' })
   }
@@ -35,7 +35,7 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
 router.get('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, full_name, email, phone, country, role, is_active, created_at, last_login FROM users WHERE id = ?',
+      'SELECT id, full_name, email, phone, country, role, is_active, created_at, last_login FROM users WHERE id = $1',
       [req.params.id]
     )
     if (!rows.length) return res.status(404).json({ success: false, message: 'User not found.' })
@@ -57,15 +57,15 @@ router.post('/', authenticate, requireAdmin, [
 
   const { full_name, email, password, phone, country, role } = req.body
   try {
-    const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email])
+    const [existing] = await pool.query('SELECT id FROM users WHERE email = $1', [email])
     if (existing.length) return res.status(409).json({ success: false, message: 'Email already exists.' })
 
     const hashed = await bcrypt.hash(password, 12)
-    const [result] = await pool.query(
-      'INSERT INTO users (full_name, email, password, phone, country, role) VALUES (?, ?, ?, ?, ?, ?)',
+    const [rows] = await pool.query(
+      'INSERT INTO users (full_name, email, password, phone, country, role) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
       [full_name, email, hashed, phone || null, country || null, role || 'user']
     )
-    return res.status(201).json({ success: true, message: 'User created.', userId: result.insertId })
+    return res.status(201).json({ success: true, message: 'User created.', userId: rows[0].id })
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Server error.' })
   }
@@ -77,12 +77,13 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     await pool.query(
       `UPDATE users SET
-        full_name = COALESCE(?, full_name),
-        phone     = COALESCE(?, phone),
-        country   = COALESCE(?, country),
-        role      = COALESCE(?, role),
-        is_active = COALESCE(?, is_active)
-       WHERE id = ?`,
+        full_name  = COALESCE($1, full_name),
+        phone      = COALESCE($2, phone),
+        country    = COALESCE($3, country),
+        role       = COALESCE($4, role),
+        is_active  = COALESCE($5, is_active),
+        updated_at = NOW()
+       WHERE id = $6`,
       [full_name || null, phone || null, country || null, role || null,
        is_active !== undefined ? is_active : null, req.params.id]
     )
@@ -96,7 +97,7 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
 router.patch('/:id/toggle-active', authenticate, requireAdmin, async (req, res) => {
   try {
     await pool.query(
-      'UPDATE users SET is_active = NOT is_active WHERE id = ?',
+      'UPDATE users SET is_active = NOT is_active, updated_at = NOW() WHERE id = $1',
       [req.params.id]
     )
     return res.json({ success: true, message: 'User status toggled.' })
@@ -111,7 +112,7 @@ router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
     return res.status(400).json({ success: false, message: 'Cannot delete your own account.' })
   }
   try {
-    await pool.query('DELETE FROM users WHERE id = ?', [req.params.id])
+    await pool.query('DELETE FROM users WHERE id = $1', [req.params.id])
     return res.json({ success: true, message: 'User deleted.' })
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Server error.' })

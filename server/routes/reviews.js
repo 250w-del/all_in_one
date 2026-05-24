@@ -15,10 +15,10 @@ router.post('/', authenticate, [
 
   const { review, rating, tour_type } = req.body
   try {
-    const [rows] = await pool.query('SELECT full_name, country FROM users WHERE id = ?', [req.user.id])
+    const [rows] = await pool.query('SELECT full_name, country FROM users WHERE id = $1', [req.user.id])
     const u = rows[0]
     await pool.query(
-      'INSERT INTO testimonials (user_id, name, country, tour_type, rating, review) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO testimonials (user_id, name, country, tour_type, rating, review) VALUES ($1, $2, $3, $4, $5, $6)',
       [req.user.id, u.full_name, u.country || null, tour_type || null, rating, review]
     )
     return res.status(201).json({ success: true, message: 'Review submitted! It will appear after approval.' })
@@ -31,12 +31,8 @@ router.post('/', authenticate, [
 router.get('/', authenticate, requireAdmin, async (req, res) => {
   const { approved } = req.query
   try {
-    let where = ''
-    const params = []
-    if (approved !== undefined) { where = 'WHERE is_approved = ?'; params.push(parseInt(approved)) }
-    const [rows] = await pool.query(
-      `SELECT * FROM testimonials ${where} ORDER BY created_at DESC`, params
-    )
+    const where  = approved !== undefined ? `WHERE is_approved = ${approved === '1' ? 'TRUE' : 'FALSE'}` : ''
+    const [rows] = await pool.query(`SELECT * FROM testimonials ${where} ORDER BY created_at DESC`)
     return res.json({ success: true, reviews: rows })
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Server error.' })
@@ -47,7 +43,7 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
 router.get('/approved', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, country, tour_type, rating, review, created_at FROM testimonials WHERE is_approved = 1 ORDER BY created_at DESC LIMIT 10'
+      'SELECT id, name, country, tour_type, rating, review, created_at FROM testimonials WHERE is_approved = TRUE ORDER BY created_at DESC LIMIT 10'
     )
     return res.json({ success: true, reviews: rows })
   } catch (err) {
@@ -58,7 +54,7 @@ router.get('/approved', async (req, res) => {
 // ─── ADMIN: Approve review ────────────────────────────────────
 router.patch('/:id/approve', authenticate, requireAdmin, async (req, res) => {
   try {
-    await pool.query('UPDATE testimonials SET is_approved = 1 WHERE id = ?', [req.params.id])
+    await pool.query('UPDATE testimonials SET is_approved = TRUE WHERE id = $1', [req.params.id])
     return res.json({ success: true, message: 'Review approved.' })
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Server error.' })
@@ -68,7 +64,7 @@ router.patch('/:id/approve', authenticate, requireAdmin, async (req, res) => {
 // ─── ADMIN: Delete review ─────────────────────────────────────
 router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
-    await pool.query('DELETE FROM testimonials WHERE id = ?', [req.params.id])
+    await pool.query('DELETE FROM testimonials WHERE id = $1', [req.params.id])
     return res.json({ success: true, message: 'Review deleted.' })
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Server error.' })

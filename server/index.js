@@ -18,10 +18,6 @@ import reviewRoutes    from './routes/reviews.js'
 import activityRoutes  from './routes/activity.js'
 import pool            from './db/connection.js'
 
-dotenv.config({ path: path.join(__dirname, '.env') })
-
-dotenv.config()
-
 const app  = express()
 const PORT = process.env.PORT || 5000
 
@@ -45,9 +41,8 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
 
-// Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
+  windowMs: 15 * 60 * 1000,
   max: 100,
   message: { success: false, message: 'Too many requests. Please try again later.' },
 })
@@ -70,17 +65,14 @@ app.use('/api/messages',  messageRoutes)
 app.use('/api/reviews',   reviewRoutes)
 app.use('/api/activity',  activityRoutes)
 
-// Health check
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'All In One Tour API is running 🚀', timestamp: new Date() })
 })
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found.` })
 })
 
-// Global error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err)
   res.status(500).json({ success: false, message: 'Internal server error.' })
@@ -91,10 +83,10 @@ app.listen(PORT, async () => {
   console.log(`   Running on: http://localhost:${PORT}`)
   console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`)
 
-  // Auto-migrate database tables on startup
+  // Auto-migrate tables on startup
   try {
-    const TABLES = `
-      CREATE TABLE IF NOT EXISTS users (
+    const TABLES = [
+      `CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY, full_name VARCHAR(100) NOT NULL,
         email VARCHAR(150) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL,
         phone VARCHAR(20), country VARCHAR(80),
@@ -103,9 +95,8 @@ app.listen(PORT, async () => {
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         last_login DATETIME
-      ) ENGINE=InnoDB;
-
-      CREATE TABLE IF NOT EXISTS bookings (
+      ) ENGINE=InnoDB`,
+      `CREATE TABLE IF NOT EXISTS bookings (
         id INT AUTO_INCREMENT PRIMARY KEY, user_id INT,
         full_name VARCHAR(100) NOT NULL, email VARCHAR(150) NOT NULL,
         phone VARCHAR(30), tour_type VARCHAR(120) NOT NULL,
@@ -115,38 +106,33 @@ app.listen(PORT, async () => {
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-      ) ENGINE=InnoDB;
-
-      CREATE TABLE IF NOT EXISTS contact_messages (
+      ) ENGINE=InnoDB`,
+      `CREATE TABLE IF NOT EXISTS contact_messages (
         id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100) NOT NULL,
         email VARCHAR(150) NOT NULL, subject VARCHAR(200), message TEXT NOT NULL,
         is_read TINYINT(1) NOT NULL DEFAULT 0, replied_at DATETIME,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB;
-
-      CREATE TABLE IF NOT EXISTS testimonials (
+      ) ENGINE=InnoDB`,
+      `CREATE TABLE IF NOT EXISTS testimonials (
         id INT AUTO_INCREMENT PRIMARY KEY, user_id INT,
         name VARCHAR(100) NOT NULL, country VARCHAR(80), tour_type VARCHAR(120),
         rating TINYINT NOT NULL DEFAULT 5, review TEXT NOT NULL,
         is_approved TINYINT(1) NOT NULL DEFAULT 0,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-      ) ENGINE=InnoDB;
-
-      CREATE TABLE IF NOT EXISTS activity_logs (
+      ) ENGINE=InnoDB`,
+      `CREATE TABLE IF NOT EXISTS activity_logs (
         id INT AUTO_INCREMENT PRIMARY KEY, user_id INT,
         action VARCHAR(100) NOT NULL, description TEXT, ip_address VARCHAR(45),
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-      ) ENGINE=InnoDB;
-
-      INSERT IGNORE INTO users (full_name, email, password, role, is_active) VALUES
-      ('Hyacinth HABINEZA','admin@allinonetour.rw',
-      '$2a$12$.RDWBx3llgNe6BukRz3wP.YM/TsO/jnPi1Y3emm8Q.oAsIukfeKDa','admin',1);
-    `
-    const stmts = TABLES.split(';').map(s => s.trim()).filter(s => s.length > 10)
-    for (const stmt of stmts) {
-      await pool.query(stmt)
+      ) ENGINE=InnoDB`,
+      `INSERT IGNORE INTO users (full_name, email, password, role, is_active)
+       VALUES ('Hyacinth HABINEZA','admin@allinonetour.rw',
+       '$2a$12$.RDWBx3llgNe6BukRz3wP.YM/TsO/jnPi1Y3emm8Q.oAsIukfeKDa','admin',1)`,
+    ]
+    for (const sql of TABLES) {
+      await pool.query(sql)
     }
     console.log('✅ Database tables ready')
   } catch (err) {

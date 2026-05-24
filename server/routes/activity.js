@@ -13,11 +13,11 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
        FROM activity_logs al
        LEFT JOIN users u ON al.user_id = u.id
        ORDER BY al.created_at DESC
-       LIMIT ? OFFSET ?`,
+       LIMIT $1 OFFSET $2`,
       [parseInt(limit), offset]
     )
-    const [[{ total }]] = await pool.query('SELECT COUNT(*) as total FROM activity_logs')
-    return res.json({ success: true, logs, total })
+    const [countRows] = await pool.query('SELECT COUNT(*) as total FROM activity_logs')
+    return res.json({ success: true, logs, total: parseInt(countRows[0].total) })
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Server error.' })
   }

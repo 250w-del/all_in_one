@@ -17,7 +17,7 @@ router.post('/', [
   const { name, email, subject, message } = req.body
   try {
     await pool.query(
-      'INSERT INTO contact_messages (name, email, subject, message) VALUES (?, ?, ?, ?)',
+      'INSERT INTO contact_messages (name, email, subject, message) VALUES ($1, $2, $3, $4)',
       [name, email, subject || null, message]
     )
     return res.status(201).json({ success: true, message: 'Message sent successfully!' })
@@ -30,17 +30,15 @@ router.post('/', [
 router.get('/', authenticate, requireAdmin, async (req, res) => {
   const { page = 1, limit = 20, unread } = req.query
   const offset = (parseInt(page) - 1) * parseInt(limit)
-  try {
-    let where = ''
-    const params = []
-    if (unread === 'true') { where = 'WHERE is_read = 0'; }
 
+  try {
+    const where  = unread === 'true' ? 'WHERE is_read = FALSE' : ''
     const [rows] = await pool.query(
-      `SELECT * FROM contact_messages ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      [...params, parseInt(limit), offset]
+      `SELECT * FROM contact_messages ${where} ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+      [parseInt(limit), offset]
     )
-    const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM contact_messages ${where}`, params)
-    return res.json({ success: true, messages: rows, total })
+    const [countRows] = await pool.query(`SELECT COUNT(*) as total FROM contact_messages ${where}`)
+    return res.json({ success: true, messages: rows, total: parseInt(countRows[0].total) })
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Server error.' })
   }
@@ -49,7 +47,7 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
 // ─── ADMIN: Mark as read ──────────────────────────────────────
 router.patch('/:id/read', authenticate, requireAdmin, async (req, res) => {
   try {
-    await pool.query('UPDATE contact_messages SET is_read = 1 WHERE id = ?', [req.params.id])
+    await pool.query('UPDATE contact_messages SET is_read = TRUE WHERE id = $1', [req.params.id])
     return res.json({ success: true, message: 'Marked as read.' })
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Server error.' })
@@ -59,7 +57,7 @@ router.patch('/:id/read', authenticate, requireAdmin, async (req, res) => {
 // ─── ADMIN: Delete message ────────────────────────────────────
 router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
-    await pool.query('DELETE FROM contact_messages WHERE id = ?', [req.params.id])
+    await pool.query('DELETE FROM contact_messages WHERE id = $1', [req.params.id])
     return res.json({ success: true, message: 'Message deleted.' })
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Server error.' })
