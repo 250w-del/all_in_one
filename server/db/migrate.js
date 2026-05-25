@@ -1,8 +1,9 @@
 /**
- * Migration script — works with both MySQL and PostgreSQL
+ * PostgreSQL migration script
  * Run: node db/migrate.js
+ * Or set as build command on Render: npm install && node db/migrate.js
  */
-import mysql from 'mysql2/promise'
+import pg from 'pg'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import path from 'path'
@@ -10,112 +11,110 @@ import path from 'path'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.join(__dirname, '..', '.env') })
 
-const MYSQL_TABLES = [
-  `CREATE TABLE IF NOT EXISTS users (
-    id         INT AUTO_INCREMENT PRIMARY KEY,
-    full_name  VARCHAR(100) NOT NULL,
-    email      VARCHAR(150) NOT NULL UNIQUE,
-    password   VARCHAR(255) NOT NULL,
-    phone      VARCHAR(20),
-    country    VARCHAR(80),
-    role       ENUM('user','admin') NOT NULL DEFAULT 'user',
-    is_active  TINYINT(1) NOT NULL DEFAULT 1,
-    avatar     VARCHAR(255),
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    last_login DATETIME
-  ) ENGINE=InnoDB`,
+const { Client } = pg
 
-  `CREATE TABLE IF NOT EXISTS bookings (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    user_id     INT,
-    full_name   VARCHAR(100) NOT NULL,
-    email       VARCHAR(150) NOT NULL,
-    phone       VARCHAR(30),
-    tour_type   VARCHAR(120) NOT NULL,
-    tour_date   DATE NOT NULL,
-    guests      VARCHAR(10) NOT NULL DEFAULT '1',
-    message     TEXT,
-    status      ENUM('pending','confirmed','cancelled','completed') NOT NULL DEFAULT 'pending',
-    admin_notes TEXT,
-    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-  ) ENGINE=InnoDB`,
+const SQL = `
+CREATE TABLE IF NOT EXISTS users (
+  id         SERIAL PRIMARY KEY,
+  full_name  VARCHAR(100) NOT NULL,
+  email      VARCHAR(150) NOT NULL UNIQUE,
+  password   VARCHAR(255) NOT NULL,
+  phone      VARCHAR(20),
+  country    VARCHAR(80),
+  role       VARCHAR(10)  NOT NULL DEFAULT 'user' CHECK (role IN ('user','admin')),
+  is_active  BOOLEAN      NOT NULL DEFAULT TRUE,
+  avatar     VARCHAR(255),
+  created_at TIMESTAMP    NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP    NOT NULL DEFAULT NOW(),
+  last_login TIMESTAMP
+);
 
-  `CREATE TABLE IF NOT EXISTS contact_messages (
-    id         INT AUTO_INCREMENT PRIMARY KEY,
-    name       VARCHAR(100) NOT NULL,
-    email      VARCHAR(150) NOT NULL,
-    subject    VARCHAR(200),
-    message    TEXT NOT NULL,
-    is_read    TINYINT(1) NOT NULL DEFAULT 0,
-    replied_at DATETIME,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-  ) ENGINE=InnoDB`,
+CREATE TABLE IF NOT EXISTS bookings (
+  id          SERIAL PRIMARY KEY,
+  user_id     INT REFERENCES users(id) ON DELETE SET NULL,
+  full_name   VARCHAR(100) NOT NULL,
+  email       VARCHAR(150) NOT NULL,
+  phone       VARCHAR(30),
+  tour_type   VARCHAR(120) NOT NULL,
+  tour_date   DATE         NOT NULL,
+  guests      VARCHAR(10)  NOT NULL DEFAULT '1',
+  message     TEXT,
+  status      VARCHAR(20)  NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','confirmed','cancelled','completed')),
+  admin_notes TEXT,
+  created_at  TIMESTAMP    NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMP    NOT NULL DEFAULT NOW()
+);
 
-  `CREATE TABLE IF NOT EXISTS testimonials (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    user_id     INT,
-    name        VARCHAR(100) NOT NULL,
-    country     VARCHAR(80),
-    tour_type   VARCHAR(120),
-    rating      TINYINT NOT NULL DEFAULT 5,
-    review      TEXT NOT NULL,
-    is_approved TINYINT(1) NOT NULL DEFAULT 0,
-    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-  ) ENGINE=InnoDB`,
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id         SERIAL PRIMARY KEY,
+  name       VARCHAR(100) NOT NULL,
+  email      VARCHAR(150) NOT NULL,
+  subject    VARCHAR(200),
+  message    TEXT         NOT NULL,
+  is_read    BOOLEAN      NOT NULL DEFAULT FALSE,
+  replied_at TIMESTAMP,
+  created_at TIMESTAMP    NOT NULL DEFAULT NOW()
+);
 
-  `CREATE TABLE IF NOT EXISTS activity_logs (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    user_id     INT,
-    action      VARCHAR(100) NOT NULL,
-    description TEXT,
-    ip_address  VARCHAR(45),
-    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-  ) ENGINE=InnoDB`,
+CREATE TABLE IF NOT EXISTS testimonials (
+  id          SERIAL PRIMARY KEY,
+  user_id     INT REFERENCES users(id) ON DELETE SET NULL,
+  name        VARCHAR(100) NOT NULL,
+  country     VARCHAR(80),
+  tour_type   VARCHAR(120),
+  rating      SMALLINT     NOT NULL DEFAULT 5 CHECK (rating BETWEEN 1 AND 5),
+  review      TEXT         NOT NULL,
+  is_approved BOOLEAN      NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMP    NOT NULL DEFAULT NOW()
+);
 
-  `INSERT IGNORE INTO users (full_name, email, password, role, is_active)
-   VALUES (
-     'Hyacinth HABINEZA',
-     'admin@allinonetour.rw',
-     '$2a$12$.RDWBx3llgNe6BukRz3wP.YM/TsO/jnPi1Y3emm8Q.oAsIukfeKDa',
-     'admin', 1
-   )`,
-]
+CREATE TABLE IF NOT EXISTS activity_logs (
+  id          SERIAL PRIMARY KEY,
+  user_id     INT REFERENCES users(id) ON DELETE SET NULL,
+  action      VARCHAR(100) NOT NULL,
+  description TEXT,
+  ip_address  VARCHAR(45),
+  created_at  TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_email      ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role       ON users(role);
+CREATE INDEX IF NOT EXISTS idx_bookings_status  ON bookings(status);
+CREATE INDEX IF NOT EXISTS idx_bookings_date    ON bookings(tour_date);
+CREATE INDEX IF NOT EXISTS idx_messages_read    ON contact_messages(is_read);
+CREATE INDEX IF NOT EXISTS idx_testimonials_app ON testimonials(is_approved);
+CREATE INDEX IF NOT EXISTS idx_logs_user        ON activity_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_logs_created     ON activity_logs(created_at);
+
+INSERT INTO users (full_name, email, password, role, is_active)
+VALUES (
+  'Hyacinth HABINEZA',
+  'admin@allinonetour.rw',
+  '$2a$12$.RDWBx3llgNe6BukRz3wP.YM/TsO/jnPi1Y3emm8Q.oAsIukfeKDa',
+  'admin',
+  TRUE
+)
+ON CONFLICT (email) DO NOTHING;
+`
 
 async function migrate() {
-  console.log('🔄 Running database migration...')
-  const url = process.env.MYSQL_PUBLIC_URL || process.env.MYSQL_URL
-  let conn
+  console.log('🔄 Running PostgreSQL migration...')
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  })
 
   try {
-    if (url) {
-      conn = await mysql.createConnection({ uri: url, ssl: { rejectUnauthorized: false } })
-    } else {
-      conn = await mysql.createConnection({
-        host:     process.env.DB_HOST || 'localhost',
-        port:     parseInt(process.env.DB_PORT || '3306'),
-        user:     process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || '',
-        database: process.env.DB_NAME || 'all_in_one_tour',
-        ssl:      process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-      })
-    }
-
-    console.log('✅ Connected')
-    for (const sql of MYSQL_TABLES) {
-      await conn.query(sql)
-    }
-    console.log('✅ Migration complete — all tables created')
-    console.log('✅ Admin user seeded (admin@allinonetour.rw / Admin@2024)')
+    await client.connect()
+    console.log('✅ Connected to PostgreSQL')
+    await client.query(SQL)
+    console.log('✅ All tables created')
+    console.log('✅ Admin user seeded — admin@allinonetour.rw / Admin@2024')
   } catch (err) {
     console.error('❌ Migration failed:', err.message)
     process.exit(1)
   } finally {
-    if (conn) await conn.end()
+    await client.end()
   }
 }
 

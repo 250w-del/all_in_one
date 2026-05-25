@@ -83,57 +83,53 @@ app.listen(PORT, async () => {
   console.log(`   Running on: http://localhost:${PORT}`)
   console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`)
 
-  // Auto-migrate tables on startup
+  // Auto-migrate PostgreSQL tables on startup
   try {
-    const TABLES = [
-      `CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY, full_name VARCHAR(100) NOT NULL,
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY, full_name VARCHAR(100) NOT NULL,
         email VARCHAR(150) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL,
         phone VARCHAR(20), country VARCHAR(80),
-        role ENUM('user','admin') NOT NULL DEFAULT 'user',
-        is_active TINYINT(1) NOT NULL DEFAULT 1, avatar VARCHAR(255),
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        last_login DATETIME
-      ) ENGINE=InnoDB`,
-      `CREATE TABLE IF NOT EXISTS bookings (
-        id INT AUTO_INCREMENT PRIMARY KEY, user_id INT,
+        role VARCHAR(10) NOT NULL DEFAULT 'user' CHECK (role IN ('user','admin')),
+        is_active BOOLEAN NOT NULL DEFAULT TRUE, avatar VARCHAR(255),
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        last_login TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS bookings (
+        id SERIAL PRIMARY KEY, user_id INT REFERENCES users(id) ON DELETE SET NULL,
         full_name VARCHAR(100) NOT NULL, email VARCHAR(150) NOT NULL,
         phone VARCHAR(30), tour_type VARCHAR(120) NOT NULL,
         tour_date DATE NOT NULL, guests VARCHAR(10) NOT NULL DEFAULT '1',
-        message TEXT, status ENUM('pending','confirmed','cancelled','completed') NOT NULL DEFAULT 'pending',
+        message TEXT,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','confirmed','cancelled','completed')),
         admin_notes TEXT,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-      ) ENGINE=InnoDB`,
-      `CREATE TABLE IF NOT EXISTS contact_messages (
-        id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS contact_messages (
+        id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL,
         email VARCHAR(150) NOT NULL, subject VARCHAR(200), message TEXT NOT NULL,
-        is_read TINYINT(1) NOT NULL DEFAULT 0, replied_at DATETIME,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB`,
-      `CREATE TABLE IF NOT EXISTS testimonials (
-        id INT AUTO_INCREMENT PRIMARY KEY, user_id INT,
+        is_read BOOLEAN NOT NULL DEFAULT FALSE, replied_at TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS testimonials (
+        id SERIAL PRIMARY KEY, user_id INT REFERENCES users(id) ON DELETE SET NULL,
         name VARCHAR(100) NOT NULL, country VARCHAR(80), tour_type VARCHAR(120),
-        rating TINYINT NOT NULL DEFAULT 5, review TEXT NOT NULL,
-        is_approved TINYINT(1) NOT NULL DEFAULT 0,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-      ) ENGINE=InnoDB`,
-      `CREATE TABLE IF NOT EXISTS activity_logs (
-        id INT AUTO_INCREMENT PRIMARY KEY, user_id INT,
+        rating SMALLINT NOT NULL DEFAULT 5 CHECK (rating BETWEEN 1 AND 5),
+        review TEXT NOT NULL, is_approved BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS activity_logs (
+        id SERIAL PRIMARY KEY, user_id INT REFERENCES users(id) ON DELETE SET NULL,
         action VARCHAR(100) NOT NULL, description TEXT, ip_address VARCHAR(45),
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-      ) ENGINE=InnoDB`,
-      `INSERT IGNORE INTO users (full_name, email, password, role, is_active)
-       VALUES ('Hyacinth HABINEZA','admin@allinonetour.rw',
-       '$2a$12$.RDWBx3llgNe6BukRz3wP.YM/TsO/jnPi1Y3emm8Q.oAsIukfeKDa','admin',1)`,
-    ]
-    for (const sql of TABLES) {
-      await pool.query(sql)
-    }
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      INSERT INTO users (full_name, email, password, role, is_active)
+      VALUES ('Hyacinth HABINEZA','admin@allinonetour.rw',
+        '$2a$12$.RDWBx3llgNe6BukRz3wP.YM/TsO/jnPi1Y3emm8Q.oAsIukfeKDa','admin',TRUE)
+      ON CONFLICT (email) DO NOTHING;
+    `)
     console.log('✅ Database tables ready')
   } catch (err) {
     console.error('⚠️  Auto-migrate warning:', err.message)
