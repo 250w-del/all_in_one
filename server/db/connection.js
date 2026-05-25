@@ -10,9 +10,14 @@ const { Pool } = pg
 
 const isProduction = process.env.NODE_ENV === 'production'
 
+// Force IPv4 for Supabase/Render compatibility
+const connectionString = process.env.DATABASE_URL
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: isProduction ? { rejectUnauthorized: false } : false,
+  connectionString,
+  ssl: { rejectUnauthorized: false },
+  // Force IPv4 — prevents ENETUNREACH on Render with Supabase
+  family: 4,
 })
 
 pool.connect()
