@@ -70,7 +70,12 @@ app.use('/api/gallery',       galleryRoutes)
 app.use('/api/announcements', announcementRoutes)
 
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'All In One Tour API is running 🚀', timestamp: new Date() })
+  res.json({ 
+    success: true, 
+    message: 'All In One Tour API is running 🚀', 
+    version: '2.0.0',
+    timestamp: new Date() 
+  })
 })
 
 app.use((req, res) => {
