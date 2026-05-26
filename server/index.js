@@ -69,6 +69,15 @@ app.use('/api/activity',      activityRoutes)
 app.use('/api/gallery',       galleryRoutes)
 app.use('/api/announcements', announcementRoutes)
 
+// Route list for debugging
+app.get('/api/routes', (req, res) => {
+  res.json({ routes: [
+    '/api/auth', '/api/bookings', '/api/users', '/api/dashboard',
+    '/api/messages', '/api/reviews', '/api/activity',
+    '/api/gallery', '/api/announcements'
+  ]})
+})
+
 app.get('/api/health', (req, res) => {
   res.json({ 
     success: true, 
