@@ -3,18 +3,21 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   FaTachometerAlt, FaUsers, FaCalendarCheck, FaEnvelope,
   FaStar, FaChartBar, FaBars, FaTimes, FaSignOutAlt,
-  FaLeaf, FaBell, FaUserCircle, FaHistory, FaCog
+  FaLeaf, FaBell, FaUserCircle, FaHistory, FaCog,
+  FaImages, FaBullhorn
 } from 'react-icons/fa'
 import { useAuth } from '../context/AuthContext'
 
 const navItems = [
-  { path: '/admin',           label: 'Dashboard',  icon: FaTachometerAlt },
-  { path: '/admin/bookings',  label: 'Bookings',   icon: FaCalendarCheck },
-  { path: '/admin/users',     label: 'Users',      icon: FaUsers },
-  { path: '/admin/messages',  label: 'Messages',   icon: FaEnvelope },
-  { path: '/admin/reviews',   label: 'Reviews',    icon: FaStar },
-  { path: '/admin/activity',  label: 'Activity',   icon: FaHistory },
-  { path: '/admin/settings',  label: 'Settings',   icon: FaCog },
+  { path: '/admin',                label: 'Dashboard',     icon: FaTachometerAlt },
+  { path: '/admin/bookings',       label: 'Bookings',      icon: FaCalendarCheck },
+  { path: '/admin/users',          label: 'Users',         icon: FaUsers },
+  { path: '/admin/messages',       label: 'Messages',      icon: FaEnvelope },
+  { path: '/admin/reviews',        label: 'Reviews',       icon: FaStar },
+  { path: '/admin/gallery',        label: 'Gallery',       icon: FaImages },
+  { path: '/admin/announcements',  label: 'Announcements', icon: FaBullhorn },
+  { path: '/admin/activity',       label: 'Activity',      icon: FaHistory },
+  { path: '/admin/settings',       label: 'Settings',      icon: FaCog },
 ]
 
 export default function AdminLayout({ children }) {

@@ -9,14 +9,16 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname  = path.dirname(__filename)
 dotenv.config({ path: path.join(__dirname, '.env') })
 
-import authRoutes      from './routes/auth.js'
-import bookingRoutes   from './routes/bookings.js'
-import userRoutes      from './routes/users.js'
-import dashboardRoutes from './routes/dashboard.js'
-import messageRoutes   from './routes/messages.js'
-import reviewRoutes    from './routes/reviews.js'
-import activityRoutes  from './routes/activity.js'
-import pool            from './db/connection.js'
+import authRoutes         from './routes/auth.js'
+import bookingRoutes      from './routes/bookings.js'
+import userRoutes         from './routes/users.js'
+import dashboardRoutes    from './routes/dashboard.js'
+import messageRoutes      from './routes/messages.js'
+import reviewRoutes       from './routes/reviews.js'
+import activityRoutes     from './routes/activity.js'
+import galleryRoutes      from './routes/gallery.js'
+import announcementRoutes from './routes/announcements.js'
+import pool               from './db/connection.js'
 
 const app  = express()
 const PORT = process.env.PORT || 5000
@@ -57,13 +59,15 @@ app.use('/api/auth/login', authLimiter)
 app.use('/api/auth/register', authLimiter)
 
 // ─── Routes ───────────────────────────────────────────────────
-app.use('/api/auth',      authRoutes)
-app.use('/api/bookings',  bookingRoutes)
-app.use('/api/users',     userRoutes)
-app.use('/api/dashboard', dashboardRoutes)
-app.use('/api/messages',  messageRoutes)
-app.use('/api/reviews',   reviewRoutes)
-app.use('/api/activity',  activityRoutes)
+app.use('/api/auth',          authRoutes)
+app.use('/api/bookings',      bookingRoutes)
+app.use('/api/users',         userRoutes)
+app.use('/api/dashboard',     dashboardRoutes)
+app.use('/api/messages',      messageRoutes)
+app.use('/api/reviews',       reviewRoutes)
+app.use('/api/activity',      activityRoutes)
+app.use('/api/gallery',       galleryRoutes)
+app.use('/api/announcements', announcementRoutes)
 
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'All In One Tour API is running 🚀', timestamp: new Date() })
@@ -129,6 +133,28 @@ app.listen(PORT, async () => {
       VALUES ('Hyacinth HABINEZA','admin@allinonetour.rw',
         '$2a$12$.RDWBx3llgNe6BukRz3wP.YM/TsO/jnPi1Y3emm8Q.oAsIukfeKDa','admin',TRUE)
       ON CONFLICT (email) DO NOTHING;
+      CREATE TABLE IF NOT EXISTS gallery_images (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(150) NOT NULL,
+        description TEXT,
+        image_url VARCHAR(500) NOT NULL,
+        category VARCHAR(80) NOT NULL DEFAULT 'General',
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS announcements (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(200) NOT NULL,
+        content TEXT NOT NULL,
+        type VARCHAR(20) NOT NULL DEFAULT 'info' CHECK (type IN ('info','warning','success','urgent')),
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        expires_at TIMESTAMP,
+        created_by INT REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
     `)
     console.log('✅ Database tables ready')
   } catch (err) {

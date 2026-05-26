@@ -81,6 +81,36 @@ CREATE INDEX IF NOT EXISTS idx_testimonials_app ON testimonials(is_approved);
 CREATE INDEX IF NOT EXISTS idx_logs_user        ON activity_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_logs_created     ON activity_logs(created_at);
 
+-- GALLERY IMAGES
+CREATE TABLE IF NOT EXISTS gallery_images (
+  id          SERIAL PRIMARY KEY,
+  title       VARCHAR(150) NOT NULL,
+  description TEXT,
+  image_url   VARCHAR(500) NOT NULL,
+  category    VARCHAR(80)  NOT NULL DEFAULT 'General',
+  is_active   BOOLEAN      NOT NULL DEFAULT TRUE,
+  sort_order  INT          NOT NULL DEFAULT 0,
+  created_at  TIMESTAMP    NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+-- ANNOUNCEMENTS
+CREATE TABLE IF NOT EXISTS announcements (
+  id         SERIAL PRIMARY KEY,
+  title      VARCHAR(200) NOT NULL,
+  content    TEXT         NOT NULL,
+  type       VARCHAR(20)  NOT NULL DEFAULT 'info' CHECK (type IN ('info','warning','success','urgent')),
+  is_active  BOOLEAN      NOT NULL DEFAULT TRUE,
+  expires_at TIMESTAMP,
+  created_by INT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP    NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_gallery_active  ON gallery_images(is_active);
+CREATE INDEX IF NOT EXISTS idx_gallery_cat     ON gallery_images(category);
+CREATE INDEX IF NOT EXISTS idx_announce_active ON announcements(is_active);
+
 -- SEED: Default Admin User (password: Admin@2024)
 INSERT INTO users (full_name, email, password, role, is_active)
 VALUES (
