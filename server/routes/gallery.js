@@ -52,7 +52,8 @@ router.post('/', authenticate, requireAdmin, [
     )
     return res.status(201).json({ success: true, message: 'Image added.', image: rows[0] })
   } catch (err) {
-    return res.status(500).json({ success: false, message: 'Server error.' })
+    console.error('Gallery create error:', err.message)
+    return res.status(500).json({ success: false, message: err.message || 'Server error.' })
   }
 })
 

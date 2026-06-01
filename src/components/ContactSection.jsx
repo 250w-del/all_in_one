@@ -21,7 +21,8 @@ export default function ContactSection() {
     email: '',
     phone: '',
     tourType: '',
-    date: '',
+    start_date: '',
+    end_date: '',
     guests: '1',
     message: '',
   })
@@ -45,7 +46,8 @@ export default function ContactSection() {
           email: form.email,
           phone: form.phone,
           tour_type: form.tourType,
-          tour_date: form.date,
+          start_date: form.start_date,
+          end_date: form.end_date,
           guests: form.guests,
           message: form.message,
         }),
@@ -183,7 +185,7 @@ export default function ContactSection() {
                     Thank you, {form.name}! We've received your booking request and will contact you within 24 hours to confirm your tour.
                   </p>
                   <button
-                    onClick={() => { setSubmitted(false); setForm({ name: '', email: '', phone: '', tourType: '', date: '', guests: '1', message: '' }) }}
+                    onClick={() => { setSubmitted(false); setForm({ name: '', email: '', phone: '', tourType: '', start_date: '', end_date: '', guests: '1', message: '' }) }}
                     className="btn-primary"
                   >
                     Book Another Tour
@@ -281,16 +283,34 @@ export default function ContactSection() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="date">
-                          Preferred Date *
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="start_date">
+                          Start Date *
                         </label>
                         <input
-                          id="date"
-                          name="date"
+                          id="start_date"
+                          name="start_date"
                           type="date"
                           required
-                          value={form.date}
+                          value={form.start_date}
                           onChange={handleChange}
+                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="end_date">
+                          End Date *
+                        </label>
+                        <input
+                          id="end_date"
+                          name="end_date"
+                          type="date"
+                          required
+                          value={form.end_date}
+                          onChange={handleChange}
+                          min={form.start_date}
                           className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent transition-all"
                         />
                       </div>

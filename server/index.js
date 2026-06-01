@@ -40,8 +40,8 @@ app.use(cors({
   },
   credentials: true,
 }))
-app.use(express.json({ limit: '10mb' }))
-app.use(express.urlencoded({ extended: true }))
+app.use(express.json({ limit: '50mb' }))
+app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -118,13 +118,17 @@ app.listen(PORT, async () => {
         id SERIAL PRIMARY KEY, user_id INT REFERENCES users(id) ON DELETE SET NULL,
         full_name VARCHAR(100) NOT NULL, email VARCHAR(150) NOT NULL,
         phone VARCHAR(30), tour_type VARCHAR(120) NOT NULL,
-        tour_date DATE NOT NULL, guests VARCHAR(10) NOT NULL DEFAULT '1',
+        tour_date DATE NOT NULL,
+        end_date DATE,
+        guests VARCHAR(10) NOT NULL DEFAULT '1',
         message TEXT,
         status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','confirmed','cancelled','completed')),
         admin_notes TEXT,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
+      -- Add end_date if it doesn't exist yet
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS end_date DATE;
       CREATE TABLE IF NOT EXISTS contact_messages (
         id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL,
         email VARCHAR(150) NOT NULL, subject VARCHAR(200), message TEXT NOT NULL,
@@ -151,13 +155,15 @@ app.listen(PORT, async () => {
         id SERIAL PRIMARY KEY,
         title VARCHAR(150) NOT NULL,
         description TEXT,
-        image_url VARCHAR(500) NOT NULL,
+        image_url TEXT NOT NULL,
         category VARCHAR(80) NOT NULL DEFAULT 'General',
         is_active BOOLEAN NOT NULL DEFAULT TRUE,
         sort_order INT NOT NULL DEFAULT 0,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
+      -- Fix existing column if it was VARCHAR(500)
+      ALTER TABLE gallery_images ALTER COLUMN image_url TYPE TEXT;
       CREATE TABLE IF NOT EXISTS announcements (
         id SERIAL PRIMARY KEY,
         title VARCHAR(200) NOT NULL,
